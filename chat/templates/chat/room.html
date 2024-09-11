@@ -23,8 +23,8 @@
 
         // Determine WebSocket protocol (ws:// or wss://) based on the current protocol
         const chatSocket = new WebSocket(
-            (window.location.protocol === 'https:' ? 'wss://' : 'ws://') + 
-            window.location.host + 
+            (window.location.protocol === 'https:' ? 'wss://' : 'ws://') +
+            window.location.host +
             '/ws/chat/' + roomName + '/'
         );
 
