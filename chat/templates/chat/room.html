@@ -24,76 +24,78 @@
     {{ room_name|json_script:"room-name" }}
 
     <script>
-        const roomName = JSON.parse(document.getElementById('room-name').textContent);
-        const chatSocket = new WebSocket(
-            (window.location.protocol === 'https:' ? 'wss://' : 'ws://') +
-            window.location.host +
-            '/ws/chat/' + roomName + '/'
-        );
+      const roomName = JSON.parse(document.getElementById('room-name').textContent);
+      const chatSocket = new WebSocket(
+          (window.location.protocol === 'https:' ? 'wss://' : 'ws://') +
+          window.location.host +
+          '/ws/chat/' + roomName + '/'
+      );
 
-        let editingMessageId = null;
+      let editingMessageId = null;
 
-        chatSocket.onmessage = function(e) {
-            const data = JSON.parse(e.data);
-            const chatLog = document.querySelector('#chat-log');
-            if (data.action === 'update') {
-                // Replace the old message with the updated one
-                const messages = chatLog.value.split('\n');
-                const index = messages.findIndex(msg => msg.startsWith(data.id));
-                if (index !== -1) {
-                    messages[index] = data.message;
-                    chatLog.value = messages.join('\n');
-                }
-            } else {
-                // Append message to chat log
-                chatLog.value += (data.message + '\n');
-            }
-        };
+      chatSocket.onmessage = function(e) {
+          const data = JSON.parse(e.data);
+          const chatLog = document.querySelector('#chat-log');
+          const sender = data.sender ? `${data.sender}: ` : '';
 
-        chatSocket.onclose = function(e) {
-            console.error('Chat socket closed unexpectedly');
-        };
+          if (data.action === 'update') {
+              // Replace the old message with the updated one
+              const messages = chatLog.value.split('\n');
+              const index = messages.findIndex(msg => msg.startsWith(sender) && msg.includes(data.id));
+              if (index !== -1) {
+                  messages[index] = sender + data.message;
+                  chatLog.value = messages.join('\n');
+              }
+          } else {
+              // Append message to chat log
+              chatLog.value += (sender + data.message + '\n');
+          }
+      };
 
-        document.querySelector('#chat-message-input').onkeyup = function(e) {
-            if (e.key === 'Enter') {
-                document.querySelector('#chat-message-submit').click();
-            }
-        };
+      chatSocket.onclose = function(e) {
+          console.error('Chat socket closed unexpectedly');
+      };
 
-        document.querySelector('#chat-message-submit').onclick = function(e) {
-            const messageInputDom = document.querySelector('#chat-message-input');
-            const message = messageInputDom.value.trim();
-            if (message) {
-                chatSocket.send(JSON.stringify({'message': message}));
-                messageInputDom.value = '';
-            }
-        };
+      document.querySelector('#chat-message-input').onkeyup = function(e) {
+          if (e.key === 'Enter') {
+              document.querySelector('#chat-message-submit').click();
+          }
+      };
 
-        document.querySelector('#edit-message-submit').onclick = function(e) {
-            const messageInputDom = document.querySelector('#edit-message-input');
-            const message = messageInputDom.value.trim();
-            if (message && editingMessageId) {
-                chatSocket.send(JSON.stringify({
-                    'message': message,
-                    'id': editingMessageId,
-                    'action': 'update'
-                }));
-                messageInputDom.value = '';
-                document.getElementById('edit-form').style.display = 'none';
-                editingMessageId = null;
-            }
-        };
+      document.querySelector('#chat-message-submit').onclick = function(e) {
+          const messageInputDom = document.querySelector('#chat-message-input');
+          const message = messageInputDom.value.trim();
+          if (message) {
+              chatSocket.send(JSON.stringify({'message': message}));
+              messageInputDom.value = '';
+          }
+      };
 
-        document.querySelector('#cancel-edit').onclick = function(e) {
-            document.getElementById('edit-form').style.display = 'none';
-            editingMessageId = null;
-        };
+      document.querySelector('#edit-message-submit').onclick = function(e) {
+          const messageInputDom = document.querySelector('#edit-message-input');
+          const message = messageInputDom.value.trim();
+          if (message && editingMessageId) {
+              chatSocket.send(JSON.stringify({
+                  'message': message,
+                  'id': editingMessageId,
+                  'action': 'update'
+              }));
+              messageInputDom.value = '';
+              document.getElementById('edit-form').style.display = 'none';
+              editingMessageId = null;
+          }
+      };
 
-        function startEditing(messageId, currentMessage) {
-            document.getElementById('edit-message-input').value = currentMessage;
-            document.getElementById('edit-form').style.display = 'block';
-            editingMessageId = messageId;
-        }
+      document.querySelector('#cancel-edit').onclick = function(e) {
+          document.getElementById('edit-form').style.display = 'none';
+          editingMessageId = null;
+      };
+
+      function startEditing(messageId, currentMessage) {
+          document.getElementById('edit-message-input').value = currentMessage;
+          document.getElementById('edit-form').style.display = 'block';
+          editingMessageId = messageId;
+      }
     </script>
 </body>
 </html>

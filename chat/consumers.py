@@ -1,7 +1,9 @@
 from channels.generic.websocket import AsyncWebsocketConsumer
 import json
 from channels.db import database_sync_to_async
-from .models import Message  # Assuming you have a Message model to store messages
+from .models import Message
+from django.contrib.auth.models import User
+
 
 class ChatConsumer(AsyncWebsocketConsumer):
     async def connect(self):
@@ -20,9 +22,11 @@ class ChatConsumer(AsyncWebsocketConsumer):
         # Fetch and send the last messages when a user connects
         messages = await self.get_last_messages(self.room_name)
         for message in messages:
+            sender_username = await self.get_sender_username(message.sender_id)
             await self.send(text_data=json.dumps({
                 'message': message.content,
-                'id': message.id  # Send the message ID to update it later
+                'id': message.id,
+                'sender': sender_username
             }))
 
     async def disconnect(self, close_code):
@@ -38,13 +42,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
         message_id = data.get('id')
         action = data.get('action')
 
-        if action == 'update' and message_id:
-            # Update the message in the database
-            await self.update_message(message_id, message_content)
+        user = self.scope['user']  # Get the current user
 
+        if action == 'update' and message_id:
+            await self.update_message(message_id, message_content)
         else:
-            # Save the new message to the database
-            await self.save_message(self.room_name, message_content)
+            await self.save_message(self.room_name, message_content, user)
 
         # Send message to room group
         await self.channel_layer.group_send(
@@ -53,19 +56,22 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 'type': 'chat_message',
                 'message': message_content,
                 'id': message_id,
-                'action': action
+                'action': action,
+                'sender': user.username
             }
         )
 
     async def chat_message(self, event):
         message = event['message']
         message_id = event.get('id', None)
+        sender = event.get('sender', 'Unknown')
 
         # Send message to WebSocket
         await self.send(text_data=json.dumps({
             'message': message,
             'id': message_id,
-            'action': event.get('action', 'new')  # Action type: 'new' or 'update'
+            'action': event.get('action', 'new'),
+            'sender': sender
         }))
 
     async def get_last_messages(self, room_name):
@@ -75,10 +81,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
         )()
         return messages
 
-    async def save_message(self, room_name, message_content):
+    async def save_message(self, room_name, message_content, user):
         # Save the message to the database asynchronously
         await database_sync_to_async(
-            lambda: Message.objects.create(room_name=room_name, content=message_content)
+            lambda: Message.objects.create(room_name=room_name, content=message_content, sender=user)
         )()
 
     async def update_message(self, message_id, message_content):
@@ -86,3 +92,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
         await database_sync_to_async(
             lambda: Message.objects.filter(id=message_id).update(content=message_content)
         )()
+
+    async def get_sender_username(self, sender_id):
+        # Fetch the sender's username asynchronously
+        sender = await database_sync_to_async(
+            lambda: User.objects.get(id=sender_id)
+        )()
+        return sender.username
