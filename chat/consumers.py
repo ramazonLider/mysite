@@ -21,7 +21,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
         messages = await self.get_last_messages(self.room_name)
         for message in messages:
             await self.send(text_data=json.dumps({
-                'message': message.content
+                'message': message.content,
+                'id': message.id  # Send the message ID to update it later
             }))
 
     async def disconnect(self, close_code):
@@ -33,26 +34,38 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def receive(self, text_data):
         data = json.loads(text_data)
-        message_content = data['message']
+        message_content = data.get('message')
+        message_id = data.get('id')
+        action = data.get('action')
 
-        # Save the message to the database
-        await self.save_message(self.room_name, message_content)
+        if action == 'update' and message_id:
+            # Update the message in the database
+            await self.update_message(message_id, message_content)
+
+        else:
+            # Save the new message to the database
+            await self.save_message(self.room_name, message_content)
 
         # Send message to room group
         await self.channel_layer.group_send(
             self.room_group_name,
             {
                 'type': 'chat_message',
-                'message': message_content
+                'message': message_content,
+                'id': message_id,
+                'action': action
             }
         )
 
     async def chat_message(self, event):
         message = event['message']
+        message_id = event.get('id', None)
 
         # Send message to WebSocket
         await self.send(text_data=json.dumps({
-            'message': message
+            'message': message,
+            'id': message_id,
+            'action': event.get('action', 'new')  # Action type: 'new' or 'update'
         }))
 
     async def get_last_messages(self, room_name):
@@ -66,4 +79,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
         # Save the message to the database asynchronously
         await database_sync_to_async(
             lambda: Message.objects.create(room_name=room_name, content=message_content)
+        )()
+
+    async def update_message(self, message_id, message_content):
+        # Update the message in the database asynchronously
+        await database_sync_to_async(
+            lambda: Message.objects.filter(id=message_id).update(content=message_content)
         )()

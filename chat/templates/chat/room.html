@@ -14,24 +14,40 @@
             <input id="chat-message-input" type="text" placeholder="Type your message..." autofocus>
             <button id="chat-message-submit">Send</button>
         </div>
+        <div id="edit-form" style="display:none;">
+            <input id="edit-message-input" type="text" placeholder="Edit your message...">
+            <button id="edit-message-submit">Update</button>
+            <button id="cancel-edit">Cancel</button>
+        </div>
     </div>
 
     {{ room_name|json_script:"room-name" }}
 
     <script>
         const roomName = JSON.parse(document.getElementById('room-name').textContent);
-
-        // Determine WebSocket protocol (ws:// or wss://) based on the current protocol
         const chatSocket = new WebSocket(
             (window.location.protocol === 'https:' ? 'wss://' : 'ws://') +
             window.location.host +
             '/ws/chat/' + roomName + '/'
         );
 
+        let editingMessageId = null;
+
         chatSocket.onmessage = function(e) {
             const data = JSON.parse(e.data);
-            // Append message to chat log
-            document.querySelector('#chat-log').value += (data.message + '\n');
+            const chatLog = document.querySelector('#chat-log');
+            if (data.action === 'update') {
+                // Replace the old message with the updated one
+                const messages = chatLog.value.split('\n');
+                const index = messages.findIndex(msg => msg.startsWith(data.id));
+                if (index !== -1) {
+                    messages[index] = data.message;
+                    chatLog.value = messages.join('\n');
+                }
+            } else {
+                // Append message to chat log
+                chatLog.value += (data.message + '\n');
+            }
         };
 
         chatSocket.onclose = function(e) {
@@ -52,6 +68,32 @@
                 messageInputDom.value = '';
             }
         };
+
+        document.querySelector('#edit-message-submit').onclick = function(e) {
+            const messageInputDom = document.querySelector('#edit-message-input');
+            const message = messageInputDom.value.trim();
+            if (message && editingMessageId) {
+                chatSocket.send(JSON.stringify({
+                    'message': message,
+                    'id': editingMessageId,
+                    'action': 'update'
+                }));
+                messageInputDom.value = '';
+                document.getElementById('edit-form').style.display = 'none';
+                editingMessageId = null;
+            }
+        };
+
+        document.querySelector('#cancel-edit').onclick = function(e) {
+            document.getElementById('edit-form').style.display = 'none';
+            editingMessageId = null;
+        };
+
+        function startEditing(messageId, currentMessage) {
+            document.getElementById('edit-message-input').value = currentMessage;
+            document.getElementById('edit-form').style.display = 'block';
+            editingMessageId = messageId;
+        }
     </script>
 </body>
 </html>
