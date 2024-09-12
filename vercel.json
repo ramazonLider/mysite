@@ -1,19 +1,21 @@
 {
   "builds": [
     {
-      "src": "mysite/wsgi.py",
-      "use": "@vercel/python",
-      "config": { "maxLambdaSize": "15mb" }
-    },
-    {
-      "src": "mysite/settings.py",
+      "src": "mysite/asgi.py",
       "use": "@vercel/python"
     }
   ],
   "routes": [
     {
+      "src": "/ws/(.*)",
+      "dest": "mysite/asgi.py"
+    },
+    {
       "src": "/(.*)",
-      "dest": "mysite/wsgi.py"
+      "dest": "mysite/asgi.py"
     }
-  ]
+  ],
+  "commands": {
+    "start": "daphne -b 0.0.0.0 -p 8000 mysite.asgi:application"
+  }
 }
