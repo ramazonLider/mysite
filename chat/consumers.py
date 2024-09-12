@@ -1,9 +1,8 @@
-from channels.generic.websocket import AsyncWebsocketConsumer
 import json
+from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from .models import Message
 from django.contrib.auth.models import User
-
 
 class ChatConsumer(AsyncWebsocketConsumer):
     async def connect(self):
@@ -46,7 +45,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
         if action == 'update' and message_id:
             await self.update_message(message_id, message_content)
-        else:
+        elif action == 'new':
             await self.save_message(self.room_name, message_content, user)
 
         # Send message to room group
@@ -94,8 +93,11 @@ class ChatConsumer(AsyncWebsocketConsumer):
         )()
 
     async def get_sender_username(self, sender_id):
-        # Fetch the sender's username asynchronously
-        sender = await database_sync_to_async(
-            lambda: User.objects.get(id=sender_id)
-        )()
-        return sender.username
+        try:
+            # Fetch the sender's username asynchronously
+            sender = await database_sync_to_async(
+                lambda: User.objects.get(id=sender_id)
+            )()
+            return sender.username
+        except User.DoesNotExist:
+            return 'Unknown'
