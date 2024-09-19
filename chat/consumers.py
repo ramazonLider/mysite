@@ -43,6 +43,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
         user = self.scope['user']  # Get the current user
 
+        # Log the incoming data to verify it's received
+        print(f"Received message: {message_content}, Action: {action}, User: {user.username}")
+
         if action == 'update' and message_id:
             await self.update_message(message_id, message_content)
         elif action == 'new':
@@ -81,10 +84,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
         return messages
 
     async def save_message(self, room_name, message_content, user):
-        # Save the message to the database asynchronously
-        await database_sync_to_async(
+        message = await database_sync_to_async(
             lambda: Message.objects.create(room_name=room_name, content=message_content, sender=user)
         )()
+        print(f"Message saved: {message.content} by {user.username}")
 
     async def update_message(self, message_id, message_content):
         # Update the message in the database asynchronously

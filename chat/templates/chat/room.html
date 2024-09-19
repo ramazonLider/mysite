@@ -33,8 +33,17 @@
 
       let editingMessageId = null;
 
+      chatSocket.onopen = function(e) {
+          console.log("WebSocket connection opened.");
+      };
+
+      chatSocket.onclose = function(e) {
+          console.error('Chat socket closed unexpectedly');
+      };
+
       chatSocket.onmessage = function(e) {
           const data = JSON.parse(e.data);
+          console.log("Received data:", data);
           const chatLog = document.querySelector('#chat-log');
           const sender = data.sender ? `${data.sender}: ` : '';
 
@@ -66,8 +75,11 @@
           const messageInputDom = document.querySelector('#chat-message-input');
           const message = messageInputDom.value.trim();
           if (message) {
-              chatSocket.send(JSON.stringify({'message': message}));
-              messageInputDom.value = '';
+              chatSocket.send(JSON.stringify({
+                  'message': message,
+                  'action': 'new'  // Include the action to indicate it's a new message
+              }));
+              messageInputDom.value = '';  // Clear the input after sending
           }
       };
 
