@@ -89,12 +89,14 @@ class ChatConsumer(AsyncWebsocketConsumer):
     async def save_message(self, room_name, message_content, user):
         if user.is_authenticated:
             user = await database_sync_to_async(lambda: User.objects.get(id=user.id))()
-
-            # Save the message to the database
-            message = await database_sync_to_async(
-                lambda: Message.objects.create(room_name=room_name, content=message_content, sender=user)
-            )()
-            print(f"Message saved: {message.content} by {user.username}")
+            try:
+                # Save the message to the database
+                message = await database_sync_to_async(
+                    lambda: Message.objects.create(room_name=room_name, content=message_content, sender=user)
+                )()
+                print(f"Message saved: {message.content} by {user.username}")
+            except Exception as e:
+                print(f"Error saving message: {e}")
         else:
             print("User is not authenticated, cannot save message")
 
