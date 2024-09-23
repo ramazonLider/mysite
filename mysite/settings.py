@@ -64,8 +64,8 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = 'mysite.wsgi.app'
-ASGI_APPLICATION = 'mysite.asgi.app'
+WSGI_APPLICATION = 'mysite.wsgi.application'
+ASGI_APPLICATION = 'mysite.asgi.application'
 
 CORS_ALLOW_ALL_ORIGINS = True
 
