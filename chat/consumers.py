@@ -3,6 +3,9 @@ from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from .models import Message
 from django.contrib.auth.models import User
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
 
 class ChatConsumer(AsyncWebsocketConsumer):
     async def connect(self):
@@ -84,10 +87,16 @@ class ChatConsumer(AsyncWebsocketConsumer):
         return messages
 
     async def save_message(self, room_name, message_content, user):
-        message = await database_sync_to_async(
-            lambda: Message.objects.create(room_name=room_name, content=message_content, sender=user)
-        )()
-        print(f"Message saved: {message.content} by {user.username}")
+        if user.is_authenticated:
+            user = await database_sync_to_async(lambda: User.objects.get(id=user.id))()
+
+            # Save the message to the database
+            message = await database_sync_to_async(
+                lambda: Message.objects.create(room_name=room_name, content=message_content, sender=user)
+            )()
+            print(f"Message saved: {message.content} by {user.username}")
+        else:
+            print("User is not authenticated, cannot save message")
 
     async def update_message(self, message_id, message_content):
         # Update the message in the database asynchronously
